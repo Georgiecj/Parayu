@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parayu - iDEC Smart Support</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #191919;
+            color: #d1d5db;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            /* Animation for page load */
+            opacity: 0; /* Start invisible */
+            transition: opacity 0.7s ease-in-out; /* Transition over 0.7 seconds */
+        }
+
+        /* Style to apply after content is loaded to fade in */
+        body.page-loaded {
+            opacity: 1;
+        }
+
+        /* Styled pre tag for code blocks within messages */
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Poppins', monospace;
+            line-height: 1.6;
+            background-color: #2d2d37; /* Darker background for blocks */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto; /* Add horizontal scroll for wide content */
+            margin-top: 1rem; /* Space above if following text */
+            margin-bottom: 1rem; /* Space below if followed by text */
+            color: #d1d5db; /* Ensure text color */
+            text-align: left;
+        }
+
+        /* Basic styling for Markdown elements */
+        .chat-message-bubble strong {
+            font-weight: 600; /* Make bold text stand out */
+        }
+         .chat-message-bubble em {
+            font-style: italic; /* Make italic text stand out */
+         }
+         .chat-message-bubble ul,
+         .chat-message-bubble ol {
+             margin-top: 1rem;
+             margin-bottom: 1rem;
+             padding-left: 20px; /* Indent lists */
+         }
+         .chat-message-bubble li {
+             margin-bottom: 0.5rem; /* Space between list items */
+         }
+
+
+        /* Sidebar styling */
+        .sidebar {
+            width: 260px;
+            height: 100vh;
+            background-color: #202123;
+            position: fixed;
+            top: 0;
+            left: -260px;
+            transition: left 0.3s ease;
+            padding: 1rem;
+            z-index: 100;
+            color: #d1d5db;
+            box-sizing: border-box;
+        }
+        .sidebar.open {
+            left: 0;
+        }
+        .sidebar-toggle {
+            position: fixed;
+            top: 13px;
+            left: 1rem;
+            cursor: pointer;
+            z-index: 102;
+            color: #d1d5db;
+            font-size: 1.5rem;
+            transition: left 0.3s ease;
+            line-height: 1;
+            padding: 5px;
+        }
+        .sidebar.open ~ .sidebar-toggle {
+            left: 270px;
+        }
+
+        /* Top bar styling */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background-color: #202123;
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center content horizontally */
+            color: #d1d5db;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: padding-left 0.3s ease, left 0.3s ease;
+            box-sizing: border-box;
+             /* Add padding on the left to make space for the toggle when sidebar is closed */
+             padding-left: 3rem; /* Adjust based on toggle size and padding */
+        }
+
+        .top-bar-title {
+             /* No specific style needed */
+        }
+
+        /* Main content area - holds chat history */
+        .chatgpt-main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding-top: 60px; /* Space for top bar */
+            padding-bottom: 130px; /* Space for fixed input container height (approx) */
+            overflow-y: auto; /* Allow scrolling of the main content */
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+            box-sizing: border-box;
+             /* Align items to the start (top) */
+             align-items: flex-start;
+             justify-content: flex-start;
+        }
+
+        /* Container for chat history to limit width and center */
+        .chat-history {
+             max-width: 768px; /* Limit width like original */
+             width: 100%; /* Take full width up to max-width */
+             margin: 0 auto; /* Center the block */
+             padding: 0 1rem; /* Horizontal padding */
+             flex-grow: 1; /* Allow history to grow */
+             display: flex;
+             flex-direction: column;
+             box-sizing: border-box;
+        }
+
+
+        /* Initial message style */
+         .initial-message {
+            flex-grow: 1; /* Push it to the vertical center if chat is empty */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #8e8ea0;
+            padding: 2rem; /* Add some padding */
+         }
+
+
+        /* Styles for chat messages */
+        .chat-message {
+            margin-bottom: 1rem; /* Space between messages */
+            display: flex;
+            justify-content: flex-start; /* Default to model on left */
+        }
+
+        .chat-message.user {
+            justify-content: flex-end; /* User messages on the right */
+        }
+
+         .chat-message-bubble {
+             max-width: 80%; /* Limit bubble width */
+             padding: 0.75rem 1rem;
+             border-radius: 1.25rem; /* Rounded corners */
+             word-break: break-word;
+             text-align: left;
+             line-height: 1.6;
+             /* Allow Markdown rendered elements (like pre, ul, ol) to break out of padding */
+             /* If children have their own padding/margins */
+             overflow: hidden; /* Contains floats if any, not strictly needed here */
+         }
+
+        .chat-message.user .chat-message-bubble {
+            background-color: #007bff; /* Blue background for user */
+            color: white;
+            border-bottom-right-radius: 0.25rem; /* Sharp corner bottom right */
+        }
+
+        .chat-message.model .chat-message-bubble {
+            background-color: #40414f; /* Darker background for model */
+            color: #d1d5db;
+             border-bottom-left-radius: 0.25rem; /* Sharp corner bottom left */
+        }
+
+
+        /* Fixed Input Container at the bottom */
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background-color: #191919;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 50;
+            box-sizing: border-box;
+        }
+
+        /* Input Wrapper */
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            max-width: 768px;
+            background-color: #40414f;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+        }
+
+
+        /* Input field style */
+        #smart-query {
+            flex-grow: 1;
+            border: none;
+            background-color: transparent;
+            color: #d1d5db;
+            padding: 0;
+            margin-right: 0.75rem;
+            outline: none;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: none;
+            min-height: 24px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #smart-query::placeholder {
+            color: #8e8ea0;
+             opacity: 1;
+        }
+
+
+        /* Ask button style */
+        .ask-button {
+            background-color: transparent;
+            border: none;
+            color: #8e8ea0;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            transition: color 0.2s ease;
+            font-size: 1.2rem;
+            line-height: 1;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ask-button:hover:not(:disabled) {
+            color: #d1d5db;
+        }
+        .ask-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+
+        .eng-malayalam-style {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 400;
+            line-height: 1.6;
+            letter-spacing: 0;
+        }
+
+        .sidebar h2 {
+            color: #d1d5db;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar a {
+            display: block;
+            padding: 0.5rem 0.5rem;
+            color: #d1d5db;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+            border-radius: 0.25rem;
+        }
+        .sidebar a:hover {
+            background-color: #343541;
+            color: #ececf1;
+        }
+        .sidebar a.active {
+            background-color: #343541;
+            color: #ececf1;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            display: none;
+        }
+        .sidebar.open ~ .overlay {
+            display: block;
+        }
+
+        /* Watermark Style */
+        .watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            color: rgba(142, 142, 160, 0.5);
+            font-size: 0.8rem;
+            z-index: 51;
+            pointer-events: none;
+        }
+
+        /* Spinner and Status styling */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #5a8bdc; /* Blue spinner */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text {
+            display: inline-block;
+            vertical-align: middle;
+        }
+         /* Status message area style */
+         #voiceStatus {
+            text-align: center;
+            width: 100%;
+            max-width: 768px;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: #8e8ea0;
+            min-height: 1.2em;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+         }
+          #voiceStatus.visible {
+              visibility: visible;
+              opacity: 1;
+          }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Navigation</h2>
+        <a href="/parayu.ai">Query</a>
+        <a href="/parayu.ai/upload">Unit Test</a>
+        <a href="/parayu.ai/devtools">DevTools</a>
+        <a href="#" class="active">Smart Support</a>
+    </div>
+
+    <div class="sidebar-toggle" onclick="toggleSidebar()">☰</div>
+
+    <<div class="top-bar">
+        <span class="top-bar-title">Parayu.ai</span>
+    </div>
+
+    <div class="overlay" onclick="toggleSidebar()"></div>
+
+    <div class="chatgpt-main-content">
+        <div class="chat-history">
+             <div id="initialMessage" class="initial-message eng-malayalam-style">Parayu iDEC?</div>
+             </div>
+    </div>
+
+    <div class="input-container">
+        <div class="input-wrapper">
+            <input type="text" id="smart-query" placeholder="Send a message..." class="eng-malayalam-style">
+            <button onclick="askSmart()" class="ask-button eng-malayalam-style">➤</button>
+        </div>
+         <div id="voiceStatus" class="text-xs text-gray-500 mt-2">
+             <span id="statusText"></span>
+         </div>
+    </div>
+
+    <div class="watermark">
+        Powered by Titians
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script>
+         const smartQueryInput = document.getElementById('smart-query');
+         const askButton = document.querySelector('.ask-button');
+         const sidebar = document.querySelector('.sidebar');
+         const overlay = document.querySelector('.overlay');
+         const chatHistory = document.querySelector('.chat-history');
+         const initialMessage = document.getElementById('initialMessage');
+         const voiceStatus = document.getElementById('voiceStatus');
+         const statusText = document.getElementById('statusText');
+
+         // --- NEW: Chat History Array ---
+         let chatMessages = []; // This array will store messages: [{role: 'user', content: '...'}, {role: 'model', content: '...'}]
+
+
+        // Function to add the 'page-loaded' class to trigger fade-in
+        function fadeInPage() {
+            document.body.classList.add('page-loaded');
+        }
+
+        // Helper to update status message
+        function updateStatus(message = "") {
+            statusText.textContent = message;
+             if (message) {
+                 voiceStatus.classList.add('visible');
+             } else {
+                 voiceStatus.classList.remove('visible');
+             }
+        }
+
+        // Helper to scroll chat history to the bottom
+         function scrollToBottom() {
+             chatHistory.scrollTop = chatHistory.scrollHeight;
+         }
+
+         // Helper to display a message in the chat history (MODIFIED for Markdown and History)
+         function displayMessage(sender, text) {
+             // Remove initial message if present
+             if (initialMessage) {
+                 initialMessage.style.display = 'none';
+             }
+
+             const messageDiv = document.createElement('div');
+             messageDiv.classList.add('chat-message', sender);
+
+             const bubbleDiv = document.createElement('div');
+             bubbleDiv.classList.add('chat-message-bubble');
+
+             // Use marked.parse() for model messages to render Markdown
+             if (sender === 'model') {
+                 // Ensure text is a string before parsing
+                 const markdownText = typeof text === 'string' ? text : String(text);
+                 // Parse Markdown to HTML and set it as innerHTML
+                 bubbleDiv.innerHTML = marked.parse(markdownText);
+             } else {
+                 // For user messages, use innerText to prevent HTML injection
+                 bubbleDiv.innerText = text;
+             }
+
+
+             messageDiv.appendChild(bubbleDiv);
+             chatHistory.appendChild(messageDiv);
+
+             // --- NEW: Add message to history array ---
+             chatMessages.push({ role: sender === 'user' ? 'user' : 'model', content: text });
+
+             scrollToBottom(); // Scroll to the new message
+         }
+
+
+        // Call fadeInPage when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', fadeInPage);
+
+
+        async function askSmart() {
+             const q = smartQueryInput.value.trim();
+             if (!q) {
+                 updateStatus(); // Clear status if empty input
+                 return;
+             }
+
+             // Display user message immediately
+             displayMessage('user', q);
+
+             // Disable input and button, show loading
+             smartQueryInput.disabled = true;
+             askButton.disabled = true;
+             askButton.style.cursor = 'not-allowed';
+             updateStatus('Getting response...'); // Show loading status
+
+
+            try {
+                const res = await fetch("/api/intelligent-faq/", {
+                    method:"POST",
+                    headers:{"Content-Type":"application/json"},
+                    // --- NEW: Send chatMessages array ---
+                    body:JSON.stringify({query:q, history: chatMessages})
+                });
+
+                 // Check for HTTP errors
+                 if (!res.ok) {
+                     const errorText = await res.text();
+                      updateStatus('Error: ' + res.status); // Show error status
+                     throw new Error(`HTTP error! status: ${res.status}\n${errorText}`);
+                 }
+
+                const data = await res.json();
+
+                 const modelResponseText = (data && data.answer) ? data.answer : "No answer received from the API.";
+                 // Display the model's answer, Markdown will be parsed in displayMessage
+                 displayMessage('model', modelResponseText);
+
+                 updateStatus(); // Clear status on success
+
+            } catch (error) {
+                console.error("Error fetching smart answer:", error);
+                 updateStatus('Error processing query.'); // Show general error status
+
+                const errorMessage = 'An error occurred. Please try again.\n' + error.message;
+                 // Display error as a model message (will also be parsed, likely just plain text)
+                displayMessage('model', errorMessage);
+
+
+            } finally {
+                // Re-enable input and button
+                smartQueryInput.disabled = false;
+                askButton.disabled = false;
+                askButton.style.cursor = 'pointer';
+
+                // Reset the query input field
+                smartQueryInput.value = '';
+                 // Clear status after a delay if it's an error message
+                 if (statusText.textContent.includes('Error')) {
+                     setTimeout(() => { updateStatus(); }, 3000);
+                 } else {
+                     updateStatus(); // Clear status immediately if not an error
+                 }
+                 smartQueryInput.focus(); // Put focus back on the input field
+
+                 // Scroll to bottom is already handled by displayMessage
+            }
+        }
+
+        // Sidebar toggle function
+        function toggleSidebar() {
+            sidebar.classList.toggle('open');
+        }
+
+        // Event listener for the overlay to close sidebar
+         overlay.addEventListener('click', toggleSidebar);
+
+        // Handle Enter key submission on the input field
+        smartQueryInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey && !askButton.disabled) {
+                event.preventDefault();
+                 askSmart();
+            }
+        });
+
+         // Auto-resize for the input field (retained)
+         smartQueryInput.addEventListener('input', autoResize, false);
+
+         function autoResize() {
+             // For input type="text", this doesn't do much, but useful if changed to textarea
+         }
+
+
+         // Initial setup on DOM load
+         document.addEventListener('DOMContentLoaded', () => {
+            fadeInPage();
+            smartQueryInput.focus();
+            updateStatus(); // Ensure status is hidden initially
+         });
+
+    </script>
+</body>
+</html>

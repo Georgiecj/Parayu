@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parayu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #191919;
+            color: #d1d5db;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            /* Animation for page load */
+            opacity: 0; /* Start invisible */
+            transition: opacity 0.7s ease-in-out; /* Transition over 0.7 seconds */
+        }
+
+        /* Style to apply after content is loaded to fade in */
+        body.page-loaded {
+            opacity: 1;
+        }
+
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Poppins', monospace;
+            line-height: 1.6;
+             background-color: #2d2d37; /* Darker background for code blocks */
+            padding: 1rem;
+            border-radius: 0.25rem;
+            overflow-x: auto; /* Add horizontal scroll for wide code */
+        }
+        .sidebar {
+            width: 260px;
+            height: 100vh;
+            background-color: #202123;
+            position: fixed;
+            top: 0;
+            left: -260px;
+            transition: left 0.3s ease;
+            padding: 1rem;
+            z-index: 100;
+            color: #d1d5db;
+            box-sizing: border-box;
+        }
+        .sidebar.open {
+            left: 0;
+        }
+        .sidebar-toggle {
+            position: fixed;
+            top: 13px;
+            left: 1rem;
+            cursor: pointer;
+            z-index: 102;
+            color: #d1d5db;
+            font-size: 1.5rem;
+            transition: left 0.3s ease;
+            line-height: 1;
+             padding: 5px;
+        }
+         .sidebar.open ~ .sidebar-toggle {
+             left: 270px;
+         }
+
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background-color: #202123;
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #d1d5db;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: padding-left 0.3s ease, left 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .top-bar-title {
+        }
+
+        .chatgpt-main-content {
+             flex-grow: 1;
+             display: flex;
+             flex-direction: column;
+             padding-top: 50px;
+             padding-bottom: 130px; /* Increased padding to account for status message height */
+             overflow-y: auto;
+             -webkit-overflow-scrolling: touch;
+             width: 100%;
+             box-sizing: border-box;
+        }
+
+        .chat-history {
+             max-width: 768px;
+             width: 100%;
+             margin: 0 auto;
+             padding: 1rem;
+             flex-grow: 1;
+             display: flex;
+             flex-direction: column;
+        }
+
+         .initial-message {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #8e8ea0;
+         }
+
+        /* Styles for chat messages */
+        .chat-message {
+            margin-bottom: 1rem; /* Space between messages */
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .chat-message.user {
+            justify-content: flex-end; /* User messages on the right */
+        }
+
+         .chat-message-bubble {
+             max-width: 80%; /* Limit bubble width */
+             padding: 0.75rem 1rem;
+             border-radius: 1.25rem; /* Rounded corners */
+             word-break: break-word;
+             text-align: left;
+             line-height: 1.6;
+         }
+
+        .chat-message.user .chat-message-bubble {
+            background-color: #007bff; /* Blue background for user */
+            color: white;
+            border-bottom-right-radius: 0.25rem; /* Sharp corner bottom right */
+        }
+
+        .chat-message.model .chat-message-bubble {
+            background-color: #40414f; /* Darker background for model */
+            color: #d1d5db;
+             border-bottom-left-radius: 0.25rem; /* Sharp corner bottom left */
+        }
+
+
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background-color: #191919;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column; /* Stack wrapper and status vertically */
+            justify-content: center;
+            align-items: center; /* Center content horizontally */
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 50; /* Input container z-index */
+            box-sizing: border-box;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: flex-end; /* Align items to the bottom within wrapper */
+            width: 100%;
+            max-width: 768px;
+            background-color: #40414f;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .query-input {
+            flex-grow: 1;
+            border: none;
+            background-color: transparent;
+            color: #d1d5db;
+            padding: 0;
+            resize: none;
+            outline: none;
+            margin-right: 0.5rem; /* Space between text input and buttons */
+            min-height: 24px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .submit-button {
+            background-color: transparent;
+            border: none;
+            color: #8e8ea0;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            transition: color 0.2s ease;
+            font-size: 1.2rem;
+            line-height: 1;
+             flex-shrink: 0; /* Prevent shrinking */
+             display: flex;
+             align-items: center;
+             justify-content: center;
+        }
+         .submit-button:hover:not(:disabled) {
+            color: #d1d5db;
+         }
+         .submit-button:disabled {
+             opacity: 0.5;
+             cursor: not-allowed;
+         }
+
+         /* Style for the microphone button */
+         .voice-button {
+            background-color: transparent;
+            border: none;
+            color: #8e8ea0;
+            cursor: pointer;
+            padding: 0.25rem 0.8rem;
+            border-radius: 999px;
+            transition: color 0.2s ease;
+            font-size: 1.2rem; /* Match send button size */
+            line-height: 1;
+            margin-left: 0.6rem; /* Space between voice button and send button */
+            flex-shrink: 0; /* Prevent shrinking */
+             display: flex;
+             align-items: center;
+             justify-content: center;
+         }
+         .voice-button:hover:not(:disabled) {
+            color: #d1d5db;
+         }
+         .voice-button:disabled {
+             opacity: 0.5;
+             cursor: not-allowed;
+         }
+         .voice-button.listening {
+             color: #ff6347; /* Tomato color when listening */
+             animation: pulse 1s infinite; /* Add pulse animation */
+         }
+
+
+         @keyframes pulse {
+             0% { transform: scale(1); }
+             50% { transform: scale(1.1); }
+             100% { transform: scale(1); }
+         }
+
+         /* Status message area style */
+         #voiceStatus {
+            text-align: center;
+            width: 100%;
+            max-width: 768px;
+            margin-top: 0.5rem;
+            font-size: 0.75rem; /* Smaller font size */
+            color: #8e8ea0; /* Gray color */
+            min-height: 1.2em; /* Reserve space even when hidden */
+            visibility: hidden; /* Hide without removing from flow */
+            opacity: 0; /* Start transparent */
+            transition: opacity 0.3s ease; /* Smooth transition */
+            pointer-events: none; /* Don't block clicks */
+            display: flex; /* Use flex to align status text and stop icon */
+            justify-content: center;
+            align-items: center;
+         }
+          #voiceStatus.visible {
+              visibility: visible;
+              opacity: 1;
+          }
+          /* Style for the stop speaking icon within status */
+          #stopSpeakingIcon {
+             display: none; /* Initially hidden */
+             cursor: pointer;
+             color: #ff6347; /* Tomato color for stop icon */
+             margin-left: 0.5rem; /* Space between text and icon */
+             pointer-events: auto; /* Enable clicks on the icon */
+             flex-shrink: 0;
+          }
+          #stopSpeakingIcon:hover {
+              color: #ff4500; /* Darker tomato on hover */
+          }
+           #stopSpeakingIcon svg {
+                width: 1em; /* Make SVG scale with font size */
+                height: 1em;
+                display: block; /* Remove extra space below icon */
+           }
+
+
+        .response-area { /* This will be removed/hidden for chat history */
+            display: none;
+        }
+
+
+        .label-text {
+            font-weight: 500;
+            color: #d1d5db;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .eng-malayalam-style {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 400;
+            line-height: 1.6;
+            letter-spacing: 0;
+        }
+
+        .sidebar h2 {
+             color: #d1d5db;
+             font-size: 1.2rem;
+             margin-bottom: 0.5rem;
+             padding-bottom: 0.5rem;
+             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar a {
+            display: block;
+            padding: 0.5rem 0.5rem;
+            color: #d1d5db;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+            border-radius: 0.25rem;
+        }
+        .sidebar a:hover {
+            background-color: #343541;
+            color: #ececf1;
+        }
+
+         .overlay {
+             position: fixed;
+             top: 0;
+             left: 0;
+             right: 0;
+             bottom: 0;
+             background-color: rgba(0, 0, 0, 0.5);
+             z-index: 99;
+             display: none;
+         }
+         .sidebar.open ~ .overlay {
+             display: block;
+         }
+
+         /* Watermark Style */
+         .watermark {
+            position: fixed;
+            bottom: 10px; /* Adjust as needed */
+            right: 10px; /* Adjust as needed */
+            color: rgba(142, 142, 160, 0.5); /* Semi-transparent grey, increased opacity slightly */
+            font-size: 0.8rem; /* Adjust as needed */
+            z-index: 51; /* Increased z-index to be above the input container */
+            pointer-events: none; /* Ensure it doesn't interfere with clicks */
+         }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Navigation</h2>
+        <a href="parayu.ai">Query</a>
+        <a href="parayu.ai/upload">Unit Test</a>
+        <a href="parayu.ai/devtools">Dev Tools</a>
+        <a href="parayu.ai/intelligent-faq">Parayu iDEC</a>
+    </div>
+
+    <div class="sidebar-toggle" onclick="toggleSidebar()">☰</div>
+
+    <div class="top-bar">
+        <span class="top-bar-title">Parayu.ai</span>
+    </div>
+
+    <div class="overlay" onclick="toggleSidebar()"></div>
+
+
+    <div class="chatgpt-main-content">
+        <div class="chat-history">
+             <div id="initialMessage" class="initial-message eng-malayalam-style">Hey, Parayu?</div>
+
+             </div>
+    </div>
+
+
+    <div class="input-container">
+        <div class="input-wrapper">
+            <textarea id="query" class="query-input eng-malayalam-style" rows="1" placeholder="Send a message..."></textarea>
+            <button id="voiceButton" class="voice-button" title="Start Voice Input" disabled>
+                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                    <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
+                    <path fill-rule="evenodd" d="M9 18.75a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z" clip-rule="evenodd" />
+                 </svg>
+            </button>
+            <button id="submitButton" onclick="submitQuery()" class="submit-button">
+                ➤
+            </button>
+        </div>
+         <div id="voiceStatus" class="text-xs text-gray-500 mt-2">
+             <span id="statusText"></span>
+             <span id="stopSpeakingIcon" title="Stop Speaking">
+                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                     <path fill-rule="evenodd" d="M6.75 5.25A.75.75 0 017.5 4.5h9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75h-9a.75.75 0 01-.75-.75V5.25z" clip-rule="evenodd" />
+                 </svg>
+             </span>
+         </div>
+    </div>
+
+    <div class="watermark">
+        Powered by Titans
+    </div>
+
+
+    <script>
+        const queryInput = document.getElementById('query');
+        const initialMessage = document.getElementById('initialMessage');
+        const submitButton = document.getElementById('submitButton');
+        const chatHistory = document.querySelector('.chat-history'); // The container for messages
+        const sidebar = document.querySelector('.sidebar');
+        const toggle = document.querySelector('.sidebar-toggle');
+        const voiceButton = document.getElementById('voiceButton'); // Microphone button
+        const voiceStatus = document.getElementById('voiceStatus'); // Status div container
+        const statusText = document.getElementById('statusText'); // Span for status text
+        const stopSpeakingIcon = document.getElementById('stopSpeakingIcon'); // Stop icon span
+
+        // --- NEW: Chat History Array ---
+        let chatMessages = []; // This array will store messages: [{role: 'user', content: '...'}, {role: 'model', content: '...'}]
+
+
+        // Function to add the 'page-loaded' class to trigger fade-in
+        function fadeInPage() {
+            document.body.classList.add('page-loaded');
+        }
+
+        // Call fadeInPage when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', fadeInPage);
+
+        // --- Voice Mode Variables and Setup ---
+        // Check for Web Speech API compatibility
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SpeechSynthesis = window.speechSynthesis;
+        let recognition = null;
+        let isListening = false;
+        let isSpeaking = false;
+        let isProcessing = false; // Added processing state
+        let currentUtterance = null;
+
+
+        // Helper to update voice button class/appearance
+        function updateVoiceButtonState() {
+             voiceButton.classList.remove('listening', 'speaking');
+             if (isProcessing) {
+                 voiceButton.disabled = true;
+             } else if (isSpeaking) {
+                 voiceButton.disabled = false; // Can click voice button while speaking (doesn't stop anymore)
+                 voiceButton.classList.add('speaking'); // Use 'speaking' class for color/style if needed
+             } else if (isListening) {
+                 voiceButton.disabled = false;
+                 voiceButton.classList.add('listening'); // Use 'listening' class for pulse animation
+             } else { // Idle state
+                  voiceButton.disabled = SpeechRecognition ? false : true; // Disable if not supported
+             }
+             voiceButton.style.cursor = voiceButton.disabled ? 'not-allowed' : 'pointer';
+
+             // Ensure submit button state is also updated
+             updateSubmitButtonState();
+        }
+
+        // Helper to update submit button state
+        function updateSubmitButtonState() {
+            const isInputEmpty = queryInput.value.trim() === '';
+            // Submit button is enabled ONLY if input is not empty AND not currently listening, speaking, or processing
+            submitButton.disabled = isInputEmpty || isListening || isSpeaking || isProcessing;
+            submitButton.style.cursor = submitButton.disabled ? 'not-allowed' : 'pointer';
+        }
+
+        // Helper to update status message and stop icon visibility
+        function updateVoiceStatus(message = "", isError = false, showStopIcon = false) {
+            statusText.textContent = message;
+            voiceStatus.style.color = isError ? '#f08080' : '#8e8ea0'; // Set text color
+            stopSpeakingIcon.style.display = showStopIcon ? 'inline-block' : 'none'; // Show/hide stop icon
+
+            if (message || showStopIcon) {
+                voiceStatus.classList.add('visible'); // Show container if there's content
+            } else {
+                voiceStatus.classList.remove('visible'); // Hide container if no content
+            }
+        }
+
+         // Helper to scroll chat history to the bottom
+         function scrollToBottom() {
+             chatHistory.scrollTop = chatHistory.scrollHeight;
+         }
+
+         // Helper to display a message in the chat history (MODIFIED to save to chatMessages)
+         function displayMessage(sender, text) {
+             // Remove initial message if present
+             if (initialMessage) {
+                 initialMessage.style.display = 'none';
+             }
+
+             const messageDiv = document.createElement('div');
+             messageDiv.classList.add('chat-message', sender);
+
+             const bubbleDiv = document.createElement('div');
+             bubbleDiv.classList.add('chat-message-bubble');
+
+             if (sender === 'model') {
+                 // Parse markdown for model responses
+                 bubbleDiv.innerHTML = marked.parse(text || '');
+             } else {
+                 // Use innerText for user messages (prevents user input markdown rendering for security/simplicity)
+                 bubbleDiv.innerText = text;
+             }
+
+             messageDiv.appendChild(bubbleDiv);
+             chatHistory.appendChild(messageDiv);
+
+             // --- NEW: Add message to history array ---
+             chatMessages.push({ role: sender === 'user' ? 'user' : 'model', content: text });
+
+             scrollToBottom(); // Scroll to the new message
+         }
+
+
+        // Initialize SpeechRecognition if available
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false; // Stop after each utterance
+            recognition.interimResults = false; // Only return final results
+            recognition.lang = 'en-US'; // Set desired language
+
+            recognition.onstart = () => {
+                isListening = true;
+                isSpeaking = false; // Should not be speaking if recognition starts
+                isProcessing = false; // Not processing yet
+                updateVoiceStatus("Listening...");
+                updateVoiceButtonState(); // Update button to listening state
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                queryInput.value = transcript;
+                autoResize.call(queryInput); // Adjust textarea height
+                updateVoiceStatus("Transcription: " + transcript);
+
+                 // Automatically submit query after successful transcription
+                 // Use a small delay to allow user to see transcription
+                 setTimeout(() => {
+                     // Recognition onend will fire shortly after result
+                     // submitQuery will be called from here, passing the transcript
+                     submitQuery(transcript);
+                 }, 200); // Adjust delay as needed
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech Recognition Error:", event.error);
+                 let errorMessage = "Error: " + event.error;
+                 if (event.error === 'not-allowed') errorMessage = "Microphone permission denied.";
+                 if (event.error === 'no-speech') errorMessage = "No speech detected.";
+                 if (event.error === 'aborted') errorMessage = "Listening stopped.";
+
+
+                 updateVoiceStatus(errorMessage, true); // Show error status
+
+                 isListening = false; // End listening on error
+                 isSpeaking = false;
+                 isProcessing = false;
+
+                 updateVoiceButtonState(); // Update button state (might go back to idle or stay disabled if not allowed)
+
+                 // Re-enable input fields if not currently processing a query
+                 if (!isProcessing) {
+                     queryInput.disabled = false;
+                     updateSubmitButtonState(); // Re-evaluate state based on input
+                 }
+                 // Hide error status after a delay
+                 setTimeout(() => { updateVoiceStatus(); }, 3000);
+            };
+
+            recognition.onend = () => {
+                // onend fires even after onerror or manual stop()
+                // States are managed in onresult/onerror/submitQuery.finally/speakResponse.onend
+                // This mostly ensures the button goes back to a non-listening state
+                // Don't go back to idle if processing or speaking started
+                if (!isProcessing && !isSpeaking && !isListening) { // Check if another state hasn't begun, and ensure listening is truly off
+                     updateVoiceButtonState(); // Update button back to idle
+                     // Status text is cleared in onresult/onerror/submitQuery.finally/speakResponse.onend
+                     // If onend fires without a result/error, clear status here
+                      if (statusText.textContent === "Listening...") {
+                          updateVoiceStatus();
+                      }
+                } else if (isListening) { // If onend fires but we're still in listening state (e.g. manual stop not via button)
+                     isListening = false; // Ensure state is false
+                     updateVoiceButtonState();
+                      if (statusText.textContent === "Listening...") {
+                           updateVoiceStatus();
+                       }
+                }
+            };
+
+            // Initial state for voice button
+            updateVoiceButtonState();
+
+        } else {
+            // Speech Recognition not supported
+            voiceButton.style.display = 'none'; // Hide the button
+            updateVoiceStatus("Voice input not supported in this browser.", true);
+             updateVoiceButtonState(); // Set button state to disabled (though hidden)
+        }
+
+        // Initialize SpeechSynthesis
+        if (!SpeechSynthesis) {
+             console.warn("Speech Synthesis not supported in this browser.");
+             // No need to hide the page, just won't speak responses
+        }
+
+
+        // Function to speak text
+        function speakResponse(text) {
+             if (!SpeechSynthesis || !text || isSpeaking || isListening || isProcessing) {
+                 // Don't speak if not supported, no text, already speaking/listening/processing
+                 // If speaking was true but failed, ensure flag is correct
+                 if(isSpeaking) {
+                     isSpeaking = false;
+                     updateVoiceButtonState();
+                     updateSubmitButtonState();
+                     updateVoiceStatus(); // Clear status
+                 }
+                 return;
+             }
+
+             // Stop any ongoing speech (should already be done by stopSpeaking, but defensive check)
+             if (SpeechSynthesis.speaking) {
+                 SpeechSynthesis.cancel(); // Cancel any previous speaking before starting new one
+             }
+
+             currentUtterance = new SpeechSynthesisUtterance(text);
+
+             currentUtterance.onstart = () => {
+                 isSpeaking = true;
+                 isListening = false; // Should not be listening if speaking starts
+                 isProcessing = false; // Finished processing backend response
+                 updateVoiceStatus("Speaking...", false, true); // Show speaking status and stop icon
+                 updateVoiceButtonState(); // Update button state (not listening/processing)
+                 updateSubmitButtonState(); // Update submit button state (disabled)
+             };
+
+             currentUtterance.onend = () => {
+                 console.log("Speech Synthesis Ended.");
+                 // Reset state
+                 isSpeaking = false;
+                 isListening = false;
+                 isProcessing = false;
+                 currentUtterance = null;
+
+                 updateVoiceStatus(); // Clear status message and hide stop icon
+                 updateVoiceButtonState(); // Update button back to idle (mic icon)
+                 updateSubmitButtonState(); // Update submit button state (re-enabled if input is not empty)
+
+                 // After speaking ends (from voice query), put focus back on input
+                 queryInput.focus();
+             };
+
+              currentUtterance.onerror = (event) => {
+                  console.error('Speech Synthesis Error:', event.error);
+                  updateVoiceStatus("Error speaking response.", true);
+                  isSpeaking = false;
+                  isListening = false;
+                  isProcessing = false;
+                   currentUtterance = null;
+                   updateVoiceButtonState(); // Update button state
+                   updateSubmitButtonState(); // Update submit button state
+                    // Hide error status after a delay
+                  setTimeout(() => { updateVoiceStatus(); }, 3000);
+              };
+
+             // Optional: Set voice, pitch, rate
+             // const voices = SpeechSynthesis.getVoices();
+             // const selectedVoice = voices.find(voice => voice.lang === 'en-US' && voice.name.includes('Zira') || voice.name.includes('David')); // Example: Find a specific voice
+             // if (selectedVoice) currentUtterance.voice = selectedVoice;
+             // currentUtterance.pitch = 1; // 0 to 2
+             // currentUtterance.rate = 1; // 0.1 to 10
+             SpeechSynthesis.speak(currentUtterance);
+        }
+
+        // Function to stop speaking (called by stop button icon)
+        function stopSpeaking() {
+            if (SpeechSynthesis && SpeechSynthesis.speaking && currentUtterance) {
+                // Remove onerror handler before cancelling
+                currentUtterance.onerror = null;
+                SpeechSynthesis.cancel();
+                // onend will handle state updates after cancel, and onerror is now null
+            } else {
+                 // If stop is clicked but not speaking, ensure state is clean
+                 // Only clear status and update buttons if currently in a state that needs resetting
+                 if (isListening || isProcessing || voiceStatus.classList.contains('visible')) {
+                      isSpeaking = false; // Ensure speaking is false
+                      updateVoiceStatus(); // Clear status
+                      updateVoiceButtonState();
+                      updateSubmitButtonState();
+                 }
+            }
+        }
+
+        // --- Event Listeners ---
+
+        // Listen for click on the Stop Speaking Icon
+        stopSpeakingIcon.addEventListener('click', stopSpeaking);
+
+
+        // Listen for click on the Voice (Mic) Button
+        voiceButton.addEventListener('click', () => {
+             // Stop Speaking is now handled by stopSpeakingIcon
+             // This button is purely for listening start/stop
+            if (isListening) {
+                // Manually stop recognition - onend will fire
+                if (recognition) recognition.stop();
+                 // Clear status immediately on manual stop
+                updateVoiceStatus();
+            } else {
+                // Only start if recognition is available and not busy (speaking or processing)
+                if (recognition && !isProcessing && !isSpeaking) {
+                    recognition.start(); // Start listening
+                     // Stop any potential lingering speech before starting listening
+                     stopSpeaking(); // Ensure speaking is stopped before starting listening
+                }
+            }
+        });
+
+
+        // Modified submitQuery to optionally accept text (from transcription)
+        function submitQuery(transcribedText = null) {
+            const query = transcribedText !== null ? transcribedText : queryInput.value.trim();
+
+            // Check if busy or empty (only for text input, voice input handled earlier)
+            if (isProcessing || isSpeaking || (transcribedText === null && (isListening || !query))) {
+                 if (transcribedText !== null && !query) {
+                     // If voice transcribed empty text, handle it
+                      updateVoiceStatus("No speech detected.", false); // Not an error, just no speech
+                      // Small delay before hiding status
+                      setTimeout(() => {
+                          updateVoiceStatus();
+                      }, 2000);
+                      // Ensure inputs are re-enabled after a failed voice input attempt
+                      isListening = false; // Ensure listening state is cleared
+                      isProcessing = false; // Ensure processing state is cleared
+                      isSpeaking = false; // Ensure speaking state is cleared
+                      updateVoiceButtonState(); // Update button state
+                      updateSubmitButtonState(); // Update submit button state
+                      queryInput.disabled = false; // Ensure text input is usable
+                      queryInput.focus(); // Put focus back on text input
+                 }
+                return; // Do not submit if busy or empty text input
+            }
+
+            // Stop any ongoing speech before sending new query
+            stopSpeaking();
+
+            // Display user message immediately
+            displayMessage('user', query);
+
+
+            isProcessing = true; // Set processing state
+            isListening = false; // Ensure listening is off
+            isSpeaking = false; // Ensure speaking is off
+
+
+            // Disable inputs and buttons during fetch
+            queryInput.disabled = true;
+            updateVoiceButtonState(); // Update voice button state (disabled during processing)
+            updateSubmitButtonState(); // Update submit button state (disabled during processing)
+
+
+            initialMessage.style.display = 'none'; // Hide initial message
+
+            updateVoiceStatus("Processing..."); // Show processing status
+
+            // --- NEW: Prepare messages array for backend ---
+            // The `chatMessages` array already contains the new user message.
+            // We send this array to the backend.
+            fetch("/api/query-code/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                // --- NEW: Send chatMessages array ---
+                body: JSON.stringify({ query: query, history: chatMessages })
+            })
+            .then(response => {
+                 isProcessing = false; // Processing finished regardless of success/fail
+                 updateVoiceButtonState(); // Update button state now that processing is done
+
+                if (!response.ok) {
+                     updateVoiceStatus("Error processing query.", true); // Error status
+                     setTimeout(() => { updateVoiceStatus(); }, 3000);
+                     return response.text().then(text => { throw new Error(`HTTP error! status: ${response.status}\n${text}`); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Processing finished, will transition to speaking or idle
+                isProcessing = false; // Should be false from .then handler above
+                 updateVoiceStatus(); // Clear status, speaking will set its own
+
+                const modelResponseText = (data && data.content) ? data.content : "No response content received.";
+
+                // Display model message - this will now parse markdown and add to chatMessages
+                displayMessage('model', modelResponseText);
+
+                // Only speak the response if the original input was from voice
+                if (transcribedText !== null) {
+                    speakResponse(modelResponseText);
+                } else {
+                     // If not speaking, update submit button state immediately
+                     updateSubmitButtonState();
+                }
+
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                isProcessing = false; // Ensure state is false
+                 updateVoiceButtonState(); // Update button state
+                 updateSubmitButtonState(); // Update button state
+
+                 updateVoiceStatus("Error processing query.", true); // Error status
+                 setTimeout(() => { updateVoiceStatus(); }, 3000);
+
+                const errorMessage = 'An error occurred. Please try again.\n' + error.message;
+                // Display error as a model message - this will also parse markdown and add to chatMessages
+                displayMessage('model', errorMessage);
+
+
+                 // Optionally speak a simpler error for voice query
+                if (transcribedText !== null) {
+                    speakResponse("An error occurred."); // Use a simpler phrase
+                }
+            })
+            .finally(() => {
+                // This finally block mainly ensures inputs are re-enabled
+                // after fetch completes, unless a new state (like speaking) has started
+                if (!isSpeaking && !isListening && !isProcessing) {
+                     queryInput.disabled = false;
+                     updateSubmitButtonState(); // Ensure submit button is correctly enabled/disabled based on input
+                     updateVoiceButtonState(); // Ensure voice button is correctly enabled
+                }
+
+                 // Clear query input value only if it was submitted by text
+                 // If from voice, leave the transcription visible until speaking finishes or manual clear
+                 if (transcribedText === null) {
+                     queryInput.value = '';
+                     autoResize.call(queryInput);
+                 } else {
+                      // If it was voice input, focus input after speaking/error/process ends
+                      // This is handled by speakResponse.onend or within the error/finally checks
+                      if (!isSpeaking && !isProcessing && !isListening) {
+                          queryInput.focus();
+                      }
+                 }
+
+                // Scroll to the bottom after any message is added (handled by displayMessage)
+                // Keep this if needed for other final adjustments
+                // setTimeout(() => {
+                //    chatHistory.scrollTop = chatHistory.scrollHeight;
+                // }, 100);
+
+            });
+        }
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('open');
+        }
+
+        queryInput.addEventListener('input', autoResize, false);
+
+        function autoResize() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight + 5) + 'px';
+        }
+
+         // Handle text input state changes
+         queryInput.addEventListener('input', updateSubmitButtonState);
+
+
+         // Handle Enter key submission (only if not in voice mode or processing)
+         queryInput.addEventListener('keypress', function(event) {
+             if (event.key === 'Enter' && !event.shiftKey) {
+                 event.preventDefault();
+                 // Only submit if not busy with voice or processing
+                 if (!isListening && !isSpeaking && !isProcessing) {
+                      submitQuery(); // Submit based on text input value
+                 }
+             }
+         });
+
+         document.querySelector('.overlay').addEventListener('click', toggleSidebar);
+
+
+         // Initial setup after DOM load
+         document.addEventListener('DOMContentLoaded', () => {
+              autoResize.call(queryInput);
+              // Set initial state of buttons and status
+              updateVoiceButtonState();
+              updateSubmitButtonState();
+              updateVoiceStatus(); // Ensure status is initially hidden
+         });
+    </script>
+</body>
+</html>

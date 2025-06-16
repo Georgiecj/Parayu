@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parayu - Code Execution & API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #1e1e1e; /* Slightly darker background for more contrast */
+            color: #cccccc; /* Lighter gray text */
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            /* Animation for page load */
+            opacity: 0; /* Start invisible */
+            transition: opacity 0.6s ease-in-out; /* Transition over 0.8 seconds */
+        }
+
+        /* Style to apply after content is loaded to fade in */
+        body.page-loaded {
+            opacity: 1;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Poppins', monospace;
+            line-height: 1.5; /* Slightly reduced line height for compactness */
+            color: #cccccc;
+            background-color: #2a2a2a; /* Darker background for code blocks/results */
+            padding: 1rem;
+            border-radius: 0.25rem;
+            overflow-x: auto;
+            text-align: left;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.05); /* Subtle border */
+        }
+
+        /* --- Common Styles from ChatGPT UI --- */
+        .sidebar {
+            width: 260px;
+            height: 100vh;
+            background-color: #282828; /* Darker sidebar background */
+            position: fixed;
+            top: 0;
+            left: -260px;
+            transition: left 0.3s ease;
+            padding: 1rem;
+            z-index: 100;
+            color: #cccccc;
+            box-sizing: border-box;
+        }
+        .sidebar.open {
+            left: 0;
+        }
+        .sidebar-toggle {
+            position: fixed;
+            top: 13px;
+            left: 1rem;
+            cursor: pointer;
+            z-index: 102;
+            color: #cccccc;
+            font-size: 1.5rem;
+            transition: left 0.3s ease;
+            line-height: 1;
+            padding: 5px;
+            background-color: transparent;
+            border: none;
+            text-align: center;
+        }
+         .sidebar.open + .sidebar-toggle {
+             left: 270px;
+         }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background-color: #282828; /* Match sidebar */
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #cccccc;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: padding-left 0.3s ease, left 0.3s ease;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+         .overlay {
+             position: fixed;
+             top: 0;
+             left: 0;
+             right: 0;
+             bottom: 0;
+             background-color: rgba(0, 0, 0, 0.6); /* Slightly darker overlay */
+             z-index: 99;
+             display: none;
+         }
+         .sidebar.open ~ .overlay {
+             display: block;
+         }
+
+         .chatgpt-main-content {
+             flex-grow: 1;
+             display: flex;
+             flex-direction: column;
+             padding-top: 60px; /* Increased space for top bar */
+             padding-bottom: 2rem;
+             overflow-y: auto;
+             -webkit-overflow-scrolling: touch;
+             width: 100%;
+             box-sizing: border-box;
+         }
+
+        .content-container {
+            max-width: 768px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 1rem; /* Padding only left/right */
+            box-sizing: border-box;
+             text-align: center;
+        }
+
+        /* --- Page Specific Styles (Inputs, Buttons, Results) --- */
+        .section {
+            margin-bottom: 3rem; /* Increased space between sections */
+            padding-top: 1rem; /* Add padding above section content */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+         }
+         .section:last-child {
+             margin-bottom: 0;
+             padding-bottom: 0;
+             border-bottom: none;
+         }
+          .section:first-child {
+              padding-top: 0; /* No top padding for the first section */
+          }
+
+
+        .section-title {
+             font-size: 1.3rem; /* Larger title */
+             font-weight: 400;
+             color: #e0e0e0; /* Lighter color for titles */
+             margin-bottom: 1.5rem;
+             margin-top: -20px;
+             text-align: center;
+             /* Removed border-bottom */
+             padding-bottom: 0;
+        }
+
+        .form-group {
+             margin-bottom: 1.25rem; /* Slightly more space between form elements */
+             text-align: left;
+        }
+         .form-group label {
+             display: block;
+             font-size: 0.95rem; /* Slightly larger label text */
+             font-weight: 500;
+             color: #bbbbbb; /* Slightly darker color for labels */
+             margin-bottom: 0.6rem; /* More space below label */
+         }
+
+
+        .query-input, #api-url, select, textarea {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: #3a3a3a; /* Darker input background */
+            color: #cccccc;
+            padding: 0.8rem 1.2rem; /* Increased padding */
+            border-radius: 0.4rem; /* Slightly smaller border radius */
+            transition: border-color 0.3s ease, box-shadow 0.2s ease;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 0;
+             text-align: left;
+        }
+         select {
+             /* Removed default arrow */
+             -webkit-appearance: none;
+             -moz-appearance: none;
+             appearance: none;
+             background-image: url('data:image/svg+xml;utf8,<svg fill="#cccccc" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+             background-repeat: no-repeat;
+             background-position: right 0.8rem center;
+             background-size: 1.1rem auto; /* Smaller arrow */
+             padding-right: 2.5rem; /* Adjusted padding for smaller arrow */
+         }
+
+
+        .query-input::placeholder, textarea::placeholder {
+             color: #888; /* Darker placeholder text */
+             opacity: 0.8;
+             text-align: left;
+        }
+        .query-input:focus, #api-url:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #5a8bdc; /* Blue focus color */
+            box-shadow: 0 0 6px rgba(90, 139, 220, 0.6); /* Corresponding glow */
+        }
+
+        textarea {
+            resize: vertical;
+             min-height: 120px; /* Increased minimum height */
+        }
+
+        .submit-button {
+            background-color: #505050; /* Gray button */
+            color: #e0e0e0; /* Lighter text */
+            padding: 0.8rem 2rem; /* Increased padding */
+            border-radius: 0.4rem; /* Match input border radius */
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+            font-weight: 500;
+            border: none;
+            display: inline-block;
+            margin-top: 2rem; /* Increased top margin */
+             text-align: center;
+        }
+        .submit-button:hover:not(:disabled) {
+            background-color: #606060; /* Slightly lighter on hover */
+            transform: none;
+        }
+         .submit-button:disabled {
+             opacity: 0.4; /* Reduced opacity when disabled */
+             cursor: not-allowed;
+         }
+
+        .response-area {
+            background-color: #2a2a2a; /* Match pre background */
+            border-radius: 0.4rem; /* Match input border radius */
+            padding: 1rem;
+            margin-top: 1.5rem;
+            word-break: break-word;
+            text-align: left;
+            min-height: 80px; /* Increased minimum height */
+            display: flex;
+            flex-direction: column;
+             border: 1px solid rgba(255, 255, 255, 0.08); /* Subtle border */
+        }
+         .response-area h3 {
+            text-align: left;
+            margin-bottom: 0.75rem;
+            color: #bbbbbb; /* Match label color */
+            font-weight: 600;
+            font-size: 0.95rem; /* Match label size */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* Match response area border */
+            padding-bottom: 0.5rem;
+         }
+          .response-area pre {
+             margin: 0;
+             padding: 0;
+             background-color: transparent;
+             border: none; /* Remove inner border */
+             flex-grow: 1;
+             display: flex;
+             align-items: flex-start; /* Align content to top-left */
+             justify-content: flex-start;
+             min-height: 50px; /* Ensure pre has min height */
+             color: #cccccc; /* Ensure text color */
+          }
+
+        .loading-text {
+             color: #888; /* Darker loading color */
+             font-style: italic;
+             text-align: center;
+             width: 100%;
+             margin-top: 0.5rem; /* Space below spinner */
+        }
+        .error-text {
+             color: #f08080;
+             text-align: left;
+             width: 100%;
+        }
+
+         /* Spinner styling */
+         .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #5a8bdc; /* Blue spinner */
+            border-radius: 50%;
+            width: 30px; /* Larger spinner */
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto; /* Center the spinner */
+         }
+
+         @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+         }
+
+        .eng-malayalam-style {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 400;
+            line-height: 1.6;
+            letter-spacing: 0;
+        }
+
+        .sidebar h2 {
+             color: #cccccc;
+             font-size: 1.2rem;
+             margin-bottom: 0.5rem;
+             padding-bottom: 0.5rem;
+             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar a {
+            display: block;
+            padding: 0.6rem 0.5rem; /* Adjusted padding */
+            color: #cccccc;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+            border-radius: 0.25rem;
+             text-align: left;
+        }
+        .sidebar a:hover {
+            background-color: #383838; /* Darker hover */
+            color: #ffffff;
+        }
+         .sidebar a.active {
+             background-color: #383838;
+             color: #ffffff;
+         }
+         /* Watermark Style */
+         .watermark {
+            position: fixed;
+            bottom: 10px; /* Adjust as needed */
+            right: 25px; /* Adjust as needed */
+            color: rgba(142, 142, 160, 0.5); /* Semi-transparent grey, increased opacity slightly */
+            font-size: 0.8rem; /* Adjust as needed */
+            z-index: 51; /* Increased z-index to be above the input container */
+            pointer-events: none; /* Ensure it doesn't interfere with clicks */
+         }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Navigation</h2>
+        <a href="/parayu.ai">Query</a>
+        <a href="upload">Unit Test</a>
+        <a href="devtools" class="active">Dev Tools</a>
+        <a href="intelligent-faq">Parayu iDEC</a>
+    </div>
+
+    <div class="sidebar-toggle" onclick="toggleSidebar()">☰</div>
+
+    <div class="top-bar">
+        <span class="top-bar-title">Parayu.ai</span>
+    </div>
+
+    <div class="overlay" onclick="toggleSidebar()"></div>
+
+
+    <div class="chatgpt-main-content">
+        <div class="content-container">
+             <h1 class="text-2xl font-bold mb-8 mt-4" style="color: #e0e0e0; text-align: center;">DevHub: Code + APIs</h1>
+
+             <div class="section">
+                 <h2 class="section-title">Live Code Execution</h2>
+
+                 <div class="form-group">
+                     <label for="language">Language:</label>
+                     <select id="language">
+                         <option value="python">Python</option>
+                         <option value="javascript">JavaScript</option>
+                         </select>
+                 </div>
+
+                 <div class="form-group">
+                      <label for="code">Code:</label>
+                     <textarea id="code" rows="10" placeholder="Write your code here..." class="eng-malayalam-style"></textarea>
+                 </div>
+
+                 <button onclick="runCode()" class="submit-button eng-malayalam-style">Run Code</button>
+
+                 <div id="codeResultArea" class="response-area mt-4">
+                     <h3>Execution Result:</h3>
+                     <pre id="result" class="eng-malayalam-style"></pre>
+                 </div>
+             </div>
+
+             <div class="section">
+                 <h2 class="section-title">API Integration</h2>
+
+                 <div class="form-group">
+                     <label for="api-url">API URL:</label>
+                     <input type="text" id="api-url" placeholder="https://api.example.com/endpoint">
+                 </div>
+
+                 <div class="form-group">
+                      <label for="method">Method:</label>
+                     <select id="method">
+                         <option value="GET">GET</option>
+                         <option value="POST">POST</option>
+                         <option value="PUT">PUT</option>
+                         <option value="DELETE">DELETE</option>
+                         <option value="PATCH">PATCH</option>
+                     </select>
+                 </div>
+
+                 <div class="form-group">
+                     <label for="headers">Headers (JSON):</label>
+                     <textarea id="headers" placeholder='{"Content-Type": "application/json"}' rows="4" class="eng-malayalam-style"></textarea>
+                 </div>
+
+                 <div class="form-group">
+                     <label for="payload">Payload (JSON):</label>
+                     <textarea id="payload" placeholder='{"key": "value"}' rows="4" class="eng-malayalam-style"></textarea>
+                 </div>
+
+                 <button onclick="fetchApi()" class="submit-button eng-malayalam-style">Send API Request</button>
+
+                  <div id="apiResultArea" class="response-area mt-4">
+                      <h3>API Response:</h3>
+                     <pre id="api-result" class="eng-malayalam-style"></pre>
+                 </div>
+             </div>
+        </div>
+    </div>
+    <div class="watermark">
+        Powered by Titans
+    </div>
+
+    <script>
+        // Function to add the 'page-loaded' class to trigger fade-in
+        function fadeInPage() {
+            document.body.classList.add('page-loaded');
+        }
+
+        // Call fadeInPage when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', fadeInPage);
+
+
+        function runCode() {
+            const code = document.getElementById("code").value;
+            const language = document.getElementById("language").value;
+            const resultPre = document.getElementById("result");
+            const runButton = document.querySelector('.section:nth-of-type(1) .submit-button'); // Use nth-of-type for clarity
+            const codeResultArea = document.getElementById('codeResultArea');
+
+             if (!code.trim()) {
+                  codeResultArea.style.display = 'flex'; // Show result area
+                  resultPre.innerHTML = '<div class="error-text">Please enter code to run.</div>';
+                  return;
+             }
+
+            // Show result area and indicate loading
+            codeResultArea.style.display = 'flex';
+            resultPre.innerHTML = '<div class="spinner"></div><div class="loading-text">Running code...</div>';
+
+
+            // Disable button and textarea/select
+            runButton.disabled = true;
+            runButton.style.cursor = 'not-allowed';
+            document.getElementById("code").disabled = true;
+            document.getElementById("language").disabled = true;
+
+
+            fetch("/api/execute-code/", {
+                method: "POST",
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({code, language})
+            })
+            .then(res => {
+                 if (!res.ok) {
+                     return res.text().then(text => { throw new Error(`HTTP error! status: ${res.status}\n${text}`); });
+                 }
+                 return res.json();
+            })
+            .then(data => {
+                 resultPre.innerHTML = ''; // Clear loading state
+
+                 if (data.stdout) {
+                     resultPre.style.color = '#cccccc'; // Use primary text color
+                     resultPre.innerText = data.stdout;
+                 } else if (data.stderr) {
+                     resultPre.style.color = '#f08080';
+                     resultPre.innerText = 'Error:\n' + data.stderr;
+                 } else {
+                     resultPre.style.color = '#888'; // Use darker gray for no output
+                     resultPre.innerText = 'Execution completed with no output.';
+                 }
+            })
+            .catch(error => {
+                console.error("Code Execution Error:", error);
+                resultPre.innerHTML = ''; // Clear loading state
+                resultPre.style.color = '#f08080';
+                resultPre.innerText = 'An error occurred during code execution:\n' + error.message;
+            })
+            .finally(() => {
+                 // Re-enable button and textarea/select
+                 runButton.disabled = false;
+                 runButton.style.cursor = 'pointer';
+                 document.getElementById("code").disabled = false;
+                  document.getElementById("language").disabled = false;
+            });
+        }
+
+        function fetchApi() {
+            const url = document.getElementById("api-url").value.trim();
+            const method = document.getElementById("method").value;
+            const headersInput = document.getElementById("headers");
+            const payloadInput = document.getElementById("payload");
+            const apiResultPre = document.getElementById("api-result");
+            const sendButton = document.querySelector('.section:nth-of-type(2) .submit-button'); // Specific selector for Send button
+            const apiResultArea = document.getElementById('apiResultArea');
+
+
+             if (!url) {
+                 apiResultArea.style.display = 'flex';
+                 apiResultPre.style.color = '#888';
+                 apiResultPre.innerText = 'Please enter an API URL.';
+                 return;
+             }
+
+            // Show result area and indicate loading
+             apiResultArea.style.display = 'flex';
+            apiResultPre.innerHTML = '<div class="spinner"></div><div class="loading-text">Sending request...</div>';
+
+
+             // Disable inputs and button
+             sendButton.disabled = true;
+             sendButton.style.cursor = 'not-allowed';
+             document.getElementById("api-url").disabled = true;
+             document.getElementById("method").disabled = true;
+             headersInput.disabled = true;
+             payloadInput.disabled = true;
+
+
+            let headers = {};
+            let payload = {};
+            let jsonError = false;
+            let jsonErrorMessage = '';
+
+            try {
+                if (headersInput.value.trim()) {
+                    headers = JSON.parse(headersInput.value);
+                }
+            } catch (e) {
+                jsonError = true;
+                jsonErrorMessage = 'JSON Parsing Error in Headers: Invalid JSON.\nDetails: ' + e.message;
+            }
+
+             if (!jsonError) {
+                try {
+                    if (payloadInput.value.trim()) {
+                        payload = JSON.parse(payloadInput.value);
+                    }
+                } catch (e) {
+                     jsonError = true;
+                     jsonErrorMessage = 'JSON Parsing Error in Payload: Invalid JSON.\nDetails: ' + e.message;
+                }
+             }
+
+
+            if (jsonError) {
+                 apiResultPre.innerHTML = ''; // Clear loading state
+                 apiResultPre.style.color = '#f08080';
+                 apiResultPre.innerText = jsonErrorMessage;
+
+                 // Re-enable inputs and button
+                 sendButton.disabled = false;
+                 sendButton.style.cursor = 'pointer';
+                 document.getElementById("api-url").disabled = false;
+                 document.getElementById("method").disabled = false;
+                 headersInput.disabled = false;
+                 payloadInput.disabled = false;
+                return; // Stop if JSON is invalid
+            }
+
+
+            fetch("/api/fetch-api/", {
+                method: "POST",
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    url,
+                    method,
+                    headers: headers,
+                    payload: payload
+                })
+            })
+            .then(res => {
+                 const contentType = res.headers.get("content-type");
+                 if (!res.ok) {
+                     if (contentType && contentType.indexOf("application/json") !== -1) {
+                         return res.json().then(data => { throw new Error(`API returned status ${res.status}:\n${JSON.stringify(data, null, 2)}`); });
+                     } else {
+                         return res.text().then(text => { throw new Error(`API returned status ${res.status}:\n${text}`); });
+                     }
+                 }
+
+                 if (contentType && contentType.indexOf("application/json") !== -1) {
+                    return res.json().then(data => ({ status: res.status, body: JSON.stringify(data, null, 2) }));
+                 } else {
+                    return res.text().then(text => ({ status: res.status, body: text }));
+                 }
+
+            })
+            .then(data => {
+                 apiResultPre.innerHTML = ''; // Clear loading state
+                 apiResultPre.style.color = '#cccccc';
+                apiResultPre.innerText = `Status: ${data.status}\n\nResponse Body:\n${data.body || 'No response body received.'}`;
+            })
+            .catch(error => {
+                console.error("API Fetch Error:", error);
+                apiResultPre.innerHTML = ''; // Clear loading state
+                apiResultPre.style.color = '#f08080';
+                apiResultPre.innerText = 'An error occurred during the API request:\n' + error.message;
+            })
+            .finally(() => {
+                 // Re-enable inputs and button
+                 sendButton.disabled = false;
+                 sendButton.style.cursor = 'pointer';
+                 document.getElementById("api-url").disabled = false;
+                 document.getElementById("method").disabled = false;
+                 headersInput.disabled = false;
+                 payloadInput.disabled = false;
+            });
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('open');
+        }
+
+         document.querySelector('.overlay').addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>
